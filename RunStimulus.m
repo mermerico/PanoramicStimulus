@@ -7,7 +7,8 @@ function RunStimulus
     viewLocs = dlmread(fullfile(path,'view_locs.txt'));
     
     % read in the parameters for the stimulus
-    parameters = GetParamsFromPaths(fullfile(path,'sin_sweep.txt'));
+    paramFileName = 'sin_sweep.txt';
+    parameters = GetParamsFromPaths(fullfile(path,paramFileName));
     
     % enable for online anlignment of the location of the windows of
     % the stimulus
@@ -15,7 +16,7 @@ function RunStimulus
    
     % number of frames to run the stimulus for (your monitor is probably at
     % 60 hz)
-    Nframes = 3000;
+    Nframes = 600;
     
     % set up initial parameters
     lastFrameChange = 1;
@@ -24,7 +25,7 @@ function RunStimulus
     stimulusData = [];
     
     % timing for the graphics card flips
-    flipTime = GetSecs();
+    lastFlipTime = GetSecs();
     
     % initialize OpenGL rendering
     InitializeMatlabOpenGL
@@ -52,7 +53,11 @@ function RunStimulus
     
 
     %% clear the screen when it exits
-    runBackUpFiles = onCleanup(@() sca);
+    clearScreen = onCleanup(@() sca);
+    
+    % keep the flip times to check for dropped frames
+    lastFlipTime = 0;
+    flipTimeArray = zeros(Nframes,1);
     
     %% giant for loop for every frame
     for frameNum = 1:Nframes
@@ -84,6 +89,11 @@ function RunStimulus
         end
 
         %% flip buffers -- v-sync, and across DLPs if possible
-        flipTime = Screen('Flip',windowId,flipTime+1/120,[],[],1);
+        flipTimeArray(frameNum) = Screen('Flip',windowId,lastFlipTime+1/120,[],[],1);
     end
+    
+    numDroppedFrames = sum(diff(flipTimeArray)>0.02);
+    percentDropped = numDroppedFrames/Nframes*100;
+    fprintf('\n');
+    disp([num2str(percentDropped) '% of frames dropped during presentation']);
 end
