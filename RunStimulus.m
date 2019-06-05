@@ -3,11 +3,17 @@ function RunStimulus
     path = fileparts(mfilename('fullpath'));
     addpath(genpath(path));
     
+    use_lightcrafter = false;
+    
     % read in the locations to draw textures in the projectors image
     viewLocs = dlmread(fullfile(path,'view_locs.txt'));
     
     % read in the parameters for the stimulus
-    paramFileName = 'sin_sweep.txt';
+    if use_lightcrafter
+        paramFileName = 'sin_sweep_lightcrafter.txt';
+    else
+        paramFileName = 'sin_sweep.txt';
+    end
     parameters = GetParamsFromPaths(fullfile(path,paramFileName));
     
     % enable for online anlignment of the location of the windows of
@@ -35,12 +41,20 @@ function RunStimulus
     % You can look that up in display settings or just try out a
     % few. 0 should be all displays attached, 1 the first monitor,
     % and 2 the newly attached projector
-    windowsScreenId = 0;
+    if use_lightcrafter
+        windowsScreenId = 2;
+    else
+        windowsScreenId = 0;
+    end
     % set the size of the window (in pixels) to display. This is the size
     % for the projectors we used
-
+    Screen('Preference', 'SkipSyncTests', 1);
     panoRect = [0 0 608 680];
-    windowId = PsychImaging('OpenWindow',windowsScreenId,[0 0 0],panoRect);
+    if use_lightcrafter
+        windowId = PsychImaging('OpenWindow',windowsScreenId);
+    else
+        windowId = PsychImaging('OpenWindow',windowsScreenId,[0 0 0],panoRect);
+    end
     Screen('Fillrect',windowId,[0;0;0]);
     
     %% frustrum parameters (position of the fly in the virtual world
