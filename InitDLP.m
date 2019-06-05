@@ -16,10 +16,10 @@ function InitDLP()
     DLP = LightCrafter();
     
     try
-        tcpObject = tcpip('192.168.0.110',21845);
+        tcpObject = tcpip('192.168.1.100',21845);
         fopen(tcpObject);
     catch err
-        error(['rig ',num2str(list(ii)),' didnt connect']);
+        error('rig didnt connect');
     end
 
     DLP.setDisplayModeHDMIVideoInput(tcpObject);
