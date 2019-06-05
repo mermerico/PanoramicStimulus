@@ -48,7 +48,6 @@ function RunStimulus
     end
     % set the size of the window (in pixels) to display. This is the size
     % for the projectors we used
-    Screen('Preference', 'SkipSyncTests', 1);
     panoRect = [0 0 608 680];
     if use_lightcrafter
         windowId = PsychImaging('OpenWindow',windowsScreenId);
