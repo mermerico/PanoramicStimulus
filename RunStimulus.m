@@ -3,22 +3,10 @@ function RunStimulus
     path = fileparts(mfilename('fullpath'));
     addpath(genpath(path));
     
-    use_lightcrafter = false;
-    
-    % read in the locations to draw textures in the projectors image
-    viewLocs = dlmread(fullfile(path,'view_locs.txt'));
-    
     % read in the parameters for the stimulus
-    if use_lightcrafter
-        paramFileName = 'sin_sweep_lightcrafter.txt';
-    else
-        paramFileName = 'sin_sweep.txt';
-    end
+    paramFileName = 'sin.tsv';
     parameters = GetParamsFromPaths(fullfile(path,paramFileName));
     
-    % enable for online anlignment of the location of the windows of
-    % the stimulus
-    align = false;
    
     % number of frames to run the stimulus for (your monitor is probably at
     % 60 hz)
@@ -30,9 +18,6 @@ function RunStimulus
     currParam = parameters(currEpochNum);
     stimulusData = [];
     
-    % timing for the graphics card flips
-    lastFlipTime = GetSecs();
-    
     % initialize OpenGL rendering
     InitializeMatlabOpenGL
     
@@ -40,40 +25,42 @@ function RunStimulus
     % changed to the monitor number when a projector is attached.
     % You can look that up in display settings or just try out a
     % few. 0 should be all displays attached, 1 the first monitor,
-    % and 2 the newly attached projector
-    if use_lightcrafter
-        windowsScreenId = 2;
-    else
-        windowsScreenId = 0;
-    end
-    % set the size of the window (in pixels) to display. This is the size
-    % for the projectors we used
-    panoRect = [0 0 608 680];
-    if use_lightcrafter
-        windowId = PsychImaging('OpenWindow',windowsScreenId);
-    else
-        windowId = PsychImaging('OpenWindow',windowsScreenId,[0 0 0],panoRect);
-    end
+    % and 2 is the second, etc
+    windowsScreenId = 0;
+    % set the size of the window (in pixels) to display.
+    panoRect = [0 0 1000 1000];
+    
+    % Position in XYZ of the center of the display in mm relative to mouse
+    % head. This is in OpenGL coordinate system (Y is up, -Z is in front).
+    screenCenterLoc = [0,0,300];
+    
+    % Screen width and height in mm
+    screenSize = [100 100];
+
+    windowId = PsychImaging('OpenWindow',windowsScreenId,[0 0 0],panoRect);
     Screen('Fillrect',windowId,[0;0;0]);
-    
-    %% frustrum parameters (position of the fly in the virtual world
-    % this function will calculate the view points in the virtual world of
-    % the fly. If your fly is above your screens looking down, adjust fly
-    % height and head angle accordingly (positive height in mm and positive
-    % head angle in degrees). If its in the middle of the screens looking
-    % forward, set both to 0
-    frustrum = CalculateFrustrum(0,0);
-    
 
     %% clear the screen when it exits
     clearScreen = onCleanup(@() sca);
+    
+    % Use common key names when reading keyboard status
+    KbName('UnifyKeyNames');
     
     % keep the flip times to check for dropped frames
     lastFlipTime = 0;
     flipTimeArray = zeros(Nframes,1);
     
+    % keep track of the the mouse's position in the virtual hallways (mm)
+    currMousePosition = 0;
+    
     %% giant for loop for every frame
     for frameNum = 1:Nframes
+        %% Stop early if escape key is pressed
+        [~,~,keyCodes] = KbCheck();
+        if keyCodes(KbName('Escape'))
+            break;
+        end
+        
         %% state-machine decides on which parameter set comes next
         framesSinceEpochChange = frameNum - lastFrameChange;
         [currEpochNum,stimChanged] = StateMachine(parameters,currEpochNum,framesSinceEpochChange);
@@ -83,26 +70,26 @@ function RunStimulus
             currParam = parameters(currEpochNum);
         end
 
-        %% insert your code for measuring the rotation of the ball here
-
+        %% insert your code for measuring the rotation of the treadmill here
+        % Demo using keyboard:
+        if keyCodes(KbName('UpArrow'))
+            currMousePosition = currMousePosition + 10;
+        end
+        if keyCodes(KbName('DownArrow'))
+            currMousePosition = currMousePosition - 10;
+        end
 
         %% generate stimuli
-        % Generate the texture
+        % Generate the textures
         stimFunc = str2func(currParam.stimtype);
-        [textureHandle,stimulusData] = stimFunc(currParam,framesSinceEpochChange,stimulusData,windowId);
+        [textureHandles,stimulusData] = stimFunc(currParam,framesSinceEpochChange,currMousePosition,stimulusData,windowId);
 
-        % display the texture
-        DrawTexture(windowId,textureHandle,frustrum,viewLocs);
-
-        %% align the windows
-        % normally this is off, its only used when setting up to make sure
-        % you're drawing in the correct region of the image
-        if align
-            viewLocs = AlignmentAdjust(viewLocs,fullfile(path,'view_locs.txt'));
-        end
+        % Draw the hallway
+        RenderHallway(windowId, textureHandles, currParam.repeatlength, screenCenterLoc, screenSize);
 
         %% flip buffers -- v-sync, and across DLPs if possible
         flipTimeArray(frameNum) = Screen('Flip',windowId,lastFlipTime+1/120,[],[],1);
+        
     end
     
     numDroppedFrames = sum(diff(flipTimeArray)>0.02);
